@@ -139,6 +139,22 @@ export DSH_ONLYOFFICE_CACHE_DIR=/var/lib/dsh-phalanx/data/onlyoffice-sdk
 > 注意：编辑器**内部**的“所有更改已保存”只代表它自己的内存服务状态；真正的落盘由本插件负责（⌘S、软盘、自动保存三条路径都走同一个写回逻辑）。
 
 ## 已知限制
+### 排查：space 页面提示「宿主端 SDK 路由不可达」
+
+DSH 的 space 工作区可能挂在 `/app/<spaceId>/` 下。这种页面里插件路由**只有在
+该前缀下才可达**；同一路由放到 origin 根会被 connection fence 直接拒绝
+（`403 Forbidden`）。客户端启动时会依次探测「页面目录 → origin → 根相对」，
+并复用第一个能用 JSON 回应 `GET …/status` 的 base。
+
+在页面控制台执行下面这行，可以看到每个 base 的真实响应：
+
+```js
+await window.__dshooProbe()
+```
+
+它会分别对 `/status` 和 SDK `api.js` 返回 HTTP 状态、content-type、耗时和响应体前缀，
+因此能一眼区分 `403 / text/plain`（fence 拒绝）、`200 / text/html`（SPA 回退）和超时。
+
 ## 支持的格式
 
 | 分类 | 格式 |

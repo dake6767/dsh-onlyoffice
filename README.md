@@ -141,6 +141,24 @@ bytes over `.odt/.doc/.csv` would corrupt them, those stay export-only); optiona
 same-directory temp file + rename, original mode preserved.
 
 ## Known limitations
+### Troubleshooting: "host SDK route unreachable" on a space page
+
+DSH spaces can serve the workspace at `/app/<spaceId>/`. On such a page the
+plugin routes are reachable **only under that prefix**; the same routes at the
+origin root are rejected by the connection fence with `403 Forbidden`. The
+client therefore probes the candidates at startup (page directory → origin →
+root-relative) and reuses whichever answers `GET …/status` with JSON.
+
+Run this in the page console to see exactly what each base returns:
+
+```js
+await window.__dshooProbe()
+```
+
+It reports HTTP status, content-type, timing and a body prefix for both
+`/status` and the SDK `api.js`, so `403 / text/plain` (fence) is easy to tell
+apart from `200 / text/html` (SPA fallback) or a timeout.
+
 ## File formats
 
 | What | Formats |
