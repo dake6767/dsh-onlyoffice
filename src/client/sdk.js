@@ -19,6 +19,15 @@
 
 import { registerOnlyOfficeStaticResource } from '../../vendor/onlyoffice-web-comp/index';
 import { resolvePageRelative } from './page-url.js';
+
+/** Diagnostics capture console.warn, so this reaches the Host log with the next report. */
+function consoleWarn(message) {
+  try {
+    console.warn(`[host-base] ${message}`);
+  } catch {
+    /* ignore */
+  }
+}
 import { setX2tWorkerFactory } from '../../vendor/onlyoffice-web-comp/internal/editor/x2t';
 import { X2T_WORKER_SOURCE } from '../../build/generated/x2t-worker-source.js';
 
@@ -104,6 +113,59 @@ export function hostBaseCandidates() {
 /** @param {string | null} base */
 export function setHostBase(base) {
   hostBase = typeof base === 'string' && base !== '' ? base.replace(/\/+$/, '') : null;
+}
+
+/**
+ * One-shot in-page probe for remote deployments (also handy in DevTools).
+ * Exposed as `window.__dshooProbe` after the SDK module loads:
+ *
+ *     await window.__dshooProbe()
+ *
+ * For every candidate Host base it fetches `/status` and the SDK `api.js`,
+ * reporting HTTP status, content-type, elapsed time and a body prefix, so a
+ * failing deployment shows whether the request hit the plugin, an SPA fallback,
+ * or nothing at all.
+ *
+ * @returns {Promise<object>}
+ */
+export async function probeHostBases() {
+  const suffix = '/' + String(STATUS_PATH).replace(/^\/+/, '');
+  const apiSuffix = '/dsh-onlyoffice/sdk/onlyoffice/9.4.0-develop/web-apps/apps/api/documents/api.js';
+  const results = [];
+  for (const base of hostBaseCandidates()) {
+    const attempt = { base, status: null, api: null };
+    for (const [key, path] of [['status', suffix], ['api', apiSuffix]]) {
+      const url = base === '' ? path : `${base}${path}`;
+      const started = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      try {
+        const response = await fetch(url, { credentials: 'same-origin' });
+        const body = await response.clone().text();
+        attempt[key] = {
+          url,
+          status: response.status,
+          contentType: response.headers.get('content-type'),
+          ms: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - started),
+          head: body.slice(0, 120).replace(/\s+/g, ' '),
+        };
+      } catch (error) {
+        attempt[key] = {
+          url,
+          error: error && error.name ? `${error.name}: ${error.message}` : String(error),
+          ms: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - started),
+        };
+      }
+    }
+    results.push(attempt);
+  }
+  let baseURI = null;
+  let origin = null;
+  try {
+    baseURI = typeof document !== 'undefined' ? document.baseURI : null;
+    origin = typeof location !== 'undefined' ? location.origin : null;
+  } catch {
+    /* ignore */
+  }
+  return { baseURI, origin, hostBase, candidates: results };
 }
 
 /** @returns {string | null} */
@@ -195,9 +257,11 @@ async function readStatus(ctx) {
       const status = await fetchStatus(STATUS_PATH, url);
       const base = url.slice(0, url.length - suffix.length);
       setHostBase(base);
+      consoleWarn(`chosen base: ${base === '' ? '(root-relative)' : base} (from ${url})`);
       return { status, url };
     } catch (error) {
       failures.push({ url, error });
+      consoleWarn(`candidate failed: ${url} -> ${error?.message || error}`);
     }
   }
 
@@ -501,4 +565,11 @@ export function errorText(error) {
   if (typeof error === 'string') return error;
   const message = typeof error.message === 'string' && error.message ? error.message : String(error);
   return message;
+}
+
+// DevTools escape hatch for remote deployments: `await window.__dshooProbe()`
+try {
+  if (typeof window !== 'undefined') window.__dshooProbe = probeHostBases;
+} catch {
+  /* non-browser */
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6 — 2026-10-21
+
+- 新增页面内探测函数 `window.__dshooProbe()`：对每个候选 base 分别请求
+  `/status` 与 SDK `api.js`，返回 HTTP 状态、content-type、耗时与响应体前缀，
+  用于远程部署快速定位“请求打到了哪里”。
+- Host base 选择过程写入 console（`[host-base] chosen/candidate failed …`），
+  会随下一次诊断上报到 Host 日志。
+
 ## 0.1.5 — 2026-10-21
 
 修复：某些 space 页面（`/app/<spaceId>/`）下插件路由不可达。
