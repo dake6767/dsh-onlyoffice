@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2 — 2026-10-21
+
+修复：反向代理子路径部署（如 `http://host:18080/app/<hash>/`）下 SDK 资源 404。
+
+- SDK 基址与 Host 路由（status/read/save/diagnostic）改为按 **页面目录**
+  （`document.baseURI`）解析，而不是 origin 根路径；这样根路径、
+  `/app/<hash>/` 反向代理前缀、以及桌面壳 `dsh-app://app/` 都使用同一套逻辑。
+- 新增 `src/client/page-url.js` 纯函数 + 6 个单测覆盖上述三种部署形态
+  （含无尾斜杠、query/hash、opaque origin 等边界）。
+
 ## 0.1.0 — 2026-10-21
 
 首个公开版本。

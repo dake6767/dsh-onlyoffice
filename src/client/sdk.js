@@ -18,6 +18,7 @@
  */
 
 import { registerOnlyOfficeStaticResource } from '../../vendor/onlyoffice-web-comp/index';
+import { resolvePageRelative } from './page-url.js';
 import { setX2tWorkerFactory } from '../../vendor/onlyoffice-web-comp/internal/editor/x2t';
 import { X2T_WORKER_SOURCE } from '../../build/generated/x2t-worker-source.js';
 
@@ -60,15 +61,11 @@ export function resolveHostUrl(ctx, path) {
     /* fall through to the page-relative resolution */
   }
 
-  const clean = String(path).replace(/^\/+/, '');
-  try {
-    if (typeof document !== 'undefined' && document.baseURI) {
-      return new URL(clean, document.baseURI).href;
-    }
-  } catch {
-    /* fall through */
-  }
-  return '/' + clean;
+  // Page-relative, NOT origin-root: a reverse-proxied DSH serves the GUI under
+  // a directory (`/app/<hash>/`) and an origin-root request would bypass it.
+  const base = typeof document !== 'undefined' ? document.baseURI : undefined;
+  const origin = typeof location !== 'undefined' ? location.origin : undefined;
+  return resolvePageRelative(path, base, origin);
 }
 
 function timeoutSignal(timeoutMs) {
@@ -118,14 +115,12 @@ function sdkOriginFrom(status) {
     status && typeof status.sdkBaseUrl === 'string' && status.sdkBaseUrl.trim()
       ? status.sdkBaseUrl.trim()
       : DEFAULT_SDK_BASE;
-  const basePath = (raw.startsWith('/') ? raw : `/${raw}`).replace(/\/+$/, '');
-  const origin = (typeof location !== 'undefined' && location.origin) || '';
-  // An opaque origin (`dsh-app://…`, `file:`) serializes as "null": prefixing it
-  // would produce "null/dsh-onlyoffice/…" and break every SDK asset URL. A
-  // root-relative base resolves against the document instead and stays valid
-  // for both http(s) and a custom app protocol.
-  if (!origin || origin === 'null' || origin === 'undefined') return basePath;
-  return `${origin}${basePath}`;
+  // Resolve against the PAGE directory so a reverse-proxy prefix
+  // (`/app/<hash>/`) or the desktop shell (`dsh-app://app/`) is preserved.
+  // Origin-root resolution made every SDK asset 404 on sub-path deployments.
+  const base = typeof document !== 'undefined' ? document.baseURI : undefined;
+  const origin = typeof location !== 'undefined' ? location.origin : undefined;
+  return resolvePageRelative(raw, base, origin);
 }
 
 /**

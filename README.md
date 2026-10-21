@@ -53,6 +53,8 @@ fetching the OpenOffice-format engine assets once (cached on disk).
 - Network access to one of the SDK mirrors on first open (see below).
 
 ## Install
+> Deployments behind a reverse proxy are supported: the plugin resolves its routes against the page directory, so a GUI served at `https://host/app/<id>/` works the same as `http://127.0.0.1:53803/` or the desktop shell `dsh-app://app/`.
+
 
 The bundle is a linked directory; `plugin_manager install_bundle` with
 `target: /Users/wuliqi/projects/dsh-onlyoffice` adds the dependency and the
