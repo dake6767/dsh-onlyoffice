@@ -1,0 +1,35 @@
+name: Release
+
+# Publishes the package to npm when a version tag is pushed, using npm Trusted
+# Publishing (OIDC) — no long-lived token is stored in the repository.
+#
+# One-time setup on npmjs.com:
+#   @dake6767/dsh-onlyoffice → Settings → Trusted publishing
+#   Publisher: GitHub · Repository: dake6767/dsh-onlyoffice · Workflow: release.yml
+# Then: git tag v0.1.1 && git push origin v0.1.1
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Install dev dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test
+      - name: Publish (Trusted Publishing)
+        run: npm publish --access public --provenance
