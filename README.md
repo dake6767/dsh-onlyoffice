@@ -101,6 +101,8 @@ render.
     cacheDir: '~/.dsh/onlyoffice-sdk'
     fetchTimeoutMs: 300000            # upstream budget per asset
     saveEnabled: true                 # false disables the write route
+    autoSave: false                   # true enables the debounced background writer
+                                      #   (manual Cmd/Ctrl+S and the editor save button always work)
     maxSaveBytes: 268435456           # 256 MiB write cap
 ```
 

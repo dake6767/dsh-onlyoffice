@@ -93,6 +93,8 @@ GET /dsh-onlyoffice/sdk/onlyoffice/<version>/<rest>
     cacheDir: '~/.dsh/onlyoffice-sdk'
     fetchTimeoutMs: 300000            # 单个资源的上游超时
     saveEnabled: true                 # false 关闭写回路由
+    autoSave: false                   # true 才启用防抖自动保存
+                                      #   手动 ⌘S / Ctrl+S、编辑器保存按钮始终可用
     maxSaveBytes: 268435456           # 写回大小上限（256 MiB）
 ```
 

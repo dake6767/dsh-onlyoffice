@@ -86,7 +86,9 @@ const MAX_FETCH_TIMEOUT_MS = 3_600_000
  * Mount the plugin. Everything registered here is owned by `ctx` and removed
  * when the plugin unloads.
  *
- * Accepted `config` fields (all optional):
+ * Accepted `config` fields (all optional). `autoSave` defaults to false: manual
+ * saves (Cmd/Ctrl+S, the editor save button) are always available, the
+ * debounced background writer must be opted into.
  *   version            SDK version segment, default `9.4.0-develop`
  *   upstreamBase       first upstream candidate, default the canonical
  *                      onlyoffice-web-comp Vercel deployment
@@ -127,6 +129,10 @@ export function apply(ctx, config) {
     save: {
       enabled:
         config === null || config === undefined || typeof config !== 'object' || config.saveEnabled !== false,
+      // Autosave stays opt-in: an editor that silently writes documents is a
+      // surprise, so manual saves (Cmd/Ctrl+S and the editor's own button) are
+      // the default and `autoSave: true` restores the debounced writer.
+      autoSave: config !== null && config !== undefined && typeof config === 'object' && config.autoSave === true,
       maxSaveBytes: pickMaxSaveBytes(config),
     },
   }
@@ -380,6 +386,8 @@ async function sendStatus(res, runtime, head) {
     // `upstreams` is the complete ordered failover list.
     upstreamBase: runtime.resolved.upstreamBase,
     upstreams: runtime.resolved.upstreams,
+    autoSave: runtime.save.autoSave,
+    saveEnabled: runtime.save.enabled,
     files: stats.files,
     bytes: stats.bytes,
     lastError: runtime.state.lastError,

@@ -89,8 +89,8 @@ test('status returns exactly the documented shape', async (t) => {
 
   const json = res.json()
   assert.deepEqual(Object.keys(json).sort(), [
-    'bytes', 'cacheDir', 'cacheable', 'files', 'lastError', 'ok', 'pluginVersion',
-    'sdkBaseUrl', 'upstreamBase', 'upstreams', 'version',
+    'autoSave', 'bytes', 'cacheDir', 'cacheable', 'files', 'lastError', 'ok',
+    'pluginVersion', 'saveEnabled', 'sdkBaseUrl', 'upstreamBase', 'upstreams', 'version',
   ])
   // The plugin version is read from the package manifest: assert its shape here
   // and keep the rest of the payload exact.
@@ -99,6 +99,8 @@ test('status returns exactly the documented shape', async (t) => {
   assert.ok(pluginVersion.length > 0, 'the plugin version must be reported')
   assert.deepEqual(rest, {
     ok: true,
+    autoSave: false,
+    saveEnabled: true,
     version: VERSION,
     sdkBaseUrl: '/dsh-onlyoffice/sdk',
     cacheDir: app.cacheDir,
@@ -609,4 +611,18 @@ test('a duplicated slash in an SDK path is normalized, not rejected', async (t) 
     cached.includes('9.4.0-develop/sdkjs/slide/themes/themes.js'),
     `cached under the collapsed path (got ${cached.join(', ')})`,
   )
+})
+
+test('autoSave is opt-in through the plugin config', async (t) => {
+  const app = await mount(t, { config: { autoSave: true } })
+  const res = await getStatus(app)
+  assert.equal(res.json().autoSave, true)
+  assert.equal(res.json().saveEnabled, true)
+})
+
+test('saveEnabled:false disables writes but keeps the status readable', async (t) => {
+  const app = await mount(t, { config: { saveEnabled: false } })
+  const res = await getStatus(app)
+  assert.equal(res.json().saveEnabled, false)
+  assert.equal(res.json().autoSave, false)
 })

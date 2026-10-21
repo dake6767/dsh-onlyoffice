@@ -168,6 +168,23 @@ export async function probeHostBases() {
   return { baseURI, origin, hostBase, candidates: results };
 }
 
+/**
+ * Whether the debounced background writer is enabled.
+ *
+ * Autosave is opt-in (`config.autoSave: true` on the Host). Manual saving via
+ * Cmd/Ctrl+S and the editor's own save button is independent of this flag.
+ * A Host that predates the flag reports nothing, which reads as disabled.
+ *
+ * @returns {boolean}
+ */
+export function isAutoSaveEnabled() {
+  try {
+    return Boolean(sdkConfig && sdkConfig.status && sdkConfig.status.autoSave === true);
+  } catch {
+    return false;
+  }
+}
+
 /** @returns {string | null} */
 export function getHostBase() {
   return hostBase;

@@ -31,6 +31,7 @@ import {
   errorText,
   saveDocumentFile,
   withConversionLock,
+  isAutoSaveEnabled,
 } from './sdk.js';
 import { isHostDark, subscribeHostTheme } from './theme.js';
 import { t } from './i18n.js';
@@ -681,8 +682,10 @@ export function OfficeView(props) {
         // The editor's Ctrl/Cmd+S blocker now delegates to this view's save.
         try {
           manager.setSaveShortcutHandler?.(() => saveRef.current());
-          // DSH patch: every document change schedules a debounced write-back.
+          // DSH patch: the debounced write-back is opt-in (host `autoSave`).
+          // Manual saves (Cmd/Ctrl+S, the editor save button) always work.
           manager.setChangeHandler?.(() => {
+            if (!isAutoSaveEnabled()) return;
             if (ignoreChangesUntilRef.current > Date.now()) return;
             autoSaverRef.current?.schedule();
           });
