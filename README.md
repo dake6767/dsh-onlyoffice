@@ -125,6 +125,22 @@ bytes over `.odt/.doc/.csv` would corrupt them, those stay export-only); optiona
 same-directory temp file + rename, original mode preserved.
 
 ## Known limitations
+## File formats
+
+| What | Formats |
+|---|---|
+| Opened in OnlyOffice (built-in preview & better-sidebar) | `docx` `doc` `odt` `rtf` · `xlsx` `xls` `ods` `csv` · `pptx` `ppt` `odp` |
+| Written back to the original file | **only** `docx` `xlsx` `pptx` (the engine's native output; writing docx bytes over `.odt/.doc/.csv` would corrupt them) |
+| Other formats (still previewed/edited by DSH's own viewers) | text, markdown, code, images, **pdf**, html… |
+| Parsed by the engine but **not usable in this SDK export** | `pdf`/`pdfa`/`djvu`/`xps` (needs the **`pdfeditor`** app), Visio `vsdx/vssx/vstx/...` (needs **`visioeditor`**) — the shipped static SDK contains only documenteditor/spreadsheeteditor/presentationeditor, and `api.js` maps `documentType: 'pdf'` to `pdfeditor`, so those 404 |
+| Engine input formats not registered here | `txt` `html` `mht` `epub` `fb2` `mobi` `docm` `dotx` `dotm` `fodt` `ott` `oform` `docxf` `xlsm` `xltx` `xltm` `xlsb` `fods` `ots` `ppsx` `pptm` `ppsm` `potx` `potm` `fodp` `otp` — add the extension to `NATIVE_EXTENSIONS` / `VIEWER_EXTS` and a MIME entry to enable, but keep them read-only/export-only |
+
+The extension must match the actual content (x2t picks its parser by extension).
+PDF deliberately stays on DSH's native viewer: it renders the embedded glyphs
+directly, while routing it through OnlyOffice would require a separate
+`pdfeditor` application and a conversion round-trip.
+
+
 
 - **No real-time co-editing**: the static SDK has no collaboration channel.
   True character-level sync needs a Document Server / WOPI backend.

@@ -126,6 +126,21 @@ GET /dsh-onlyoffice/sdk/onlyoffice/<version>/<rest>
 > 注意：编辑器**内部**的“所有更改已保存”只代表它自己的内存服务状态；真正的落盘由本插件负责（⌘S、软盘、自动保存三条路径都走同一个写回逻辑）。
 
 ## 已知限制
+## 支持的格式
+
+| 分类 | 格式 |
+|---|---|
+| 用 OnlyOffice 打开（内置预览 & better-sidebar） | `docx` `doc` `odt` `rtf` · `xlsx` `xls` `ods` `csv` · `pptx` `ppt` `odp` |
+| 可写回原文件 | **仅** `docx` `xlsx` `pptx`（引擎原生输出；把 docx 字节写进 `.odt/.doc/.csv` 会损坏文件） |
+| 其它格式（仍由 DSH 自带查看器处理） | 文本、Markdown、代码、图片、**PDF**、HTML… |
+| 引擎能解析、但这份 SDK 导出用不了 | `pdf`/`pdfa`/`djvu`/`xps`（需要 **`pdfeditor`** 应用）、Visio `vsdx/vssx/vstx/...`（需要 **`visioeditor`**）——当前静态 SDK 只有 documenteditor/spreadsheeteditor/presentationeditor，而 `api.js` 把 `documentType: 'pdf'` 映射到 `pdfeditor`，所以会 404 |
+| 引擎支持但本插件未注册 | `txt` `html` `mht` `epub` `fb2` `mobi` `docm` `dotx` `dotm` `fodt` `ott` `oform` `docxf` `xlsm` `xltx` `xltm` `xlsb` `fods` `ots` `ppsx` `pptm` `ppsm` `potx` `potm` `fodp` `otp` —— 想启用就加进 `NATIVE_EXTENSIONS` / `VIEWER_EXTS` 并补 MIME，但**不要开放写回** |
+
+扩展名必须与文件真实内容一致（x2t 按扩展名选择解析器）。
+PDF 有意保留给 DSH 原生查看器：它直接渲染 PDF 内嵌字形；交给 OnlyOffice 需要额外的
+`pdfeditor` 应用并多一次转换，纯前端静态 SDK 不适合。
+
+
 
 - **没有实时协同/字符级热更新**：静态 SDK 没有协同通道，真正的共同编辑需要 Document Server / WOPI 后端。外部修改是“提示 → 你点击 → 整篇重载”；
 - 写回只支持原生 OOXML（docx/xlsx/pptx），其余格式只读 + 导出；
