@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.5 — 2026-10-21
+
+修复：某些 space 页面（`/app/<spaceId>/`）下插件路由不可达。
+
+- 不再假定 Host 路由挂在 origin 根或页面目录：`ensureSdkReady()` 会用
+  `GET <base>/status` **依次探测**「页面目录相对」「origin 根」「根相对」三个候选，
+  第一个返回合法 JSON 的即被记住，随后 read/save/diagnostic 与 SDK 基址都复用它。
+- 这样同一份代码同时适配：桌面壳 `dsh-app://app/`、根路径部署、
+  `/app/<spaceId>/` 工作区页面、以及将来真正的反代前缀。
+- 版本 0.1.5。
+
 ## 0.1.4 — 2026-10-21
 
 - 新增 `DSH_ONLYOFFICE_CACHE_DIR` 环境变量（优先级：插件 config > 环境变量 >

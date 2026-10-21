@@ -50,6 +50,67 @@ let sdkConfig = null;
  * directory and on the desktop shell's custom protocol; otherwise resolve the
  * relative path against the page's own base.
  */
+/**
+ * Base URL of this plugin's Host routes, discovered once per page.
+ *
+ * DSH deployments disagree about where the Host mounts `/dsh-onlyoffice`:
+ * a space workspace may expose the page at `/app/<spaceId>/` while the plugin
+ * routes stay at the origin root, and other pages use a `<base href>` that
+ * really is the deployment prefix. Guessing either one produced a hard failure
+ * on the other deployment, so `ensureSdkReady()` PROBES both candidates with
+ * `GET <base>/status` and remembers the first one that answers with JSON.
+ *
+ * @type {string | null}
+ */
+let hostBase = null;
+
+/**
+ * Candidate ORIGIN-level bases for the Host routes ("origin" here means
+ * "everything before `/dsh-onlyoffice`"), most specific first, de-duplicated.
+ * The last candidate is always the empty string, i.e. a root-relative URL.
+ *
+ * @returns {string[]}
+ */
+export function hostBaseCandidates() {
+  const out = [];
+  const push = (value) => {
+    if (typeof value !== 'string') return;
+    const clean = value.replace(/\/+$/, '');
+    if (!out.includes(clean)) out.push(clean);
+  };
+  const origin = typeof location !== 'undefined' ? location.origin : undefined;
+  const base = typeof document !== 'undefined' ? document.baseURI : undefined;
+
+  // 1. The page directory itself (`…/app/<spaceId>/` on a space page).
+  try {
+    if (typeof base === 'string' && base !== '') {
+      const dir = new URL('.', base);
+      dir.search = '';
+      dir.hash = '';
+      push(dir.href);
+    }
+  } catch {
+    /* fall through */
+  }
+  // 2. The origin root (plain web deployment).
+  if (typeof origin === 'string' && origin !== '' && origin !== 'null' && origin !== 'undefined') {
+    push(origin);
+  }
+  // 3. Root-relative: also valid for opaque origins like `dsh-app://app/`.
+  push('');
+  return out;
+}
+
+/** @param {string | null} base */
+export function setHostBase(base) {
+  hostBase = typeof base === 'string' && base !== '' ? base.replace(/\/+$/, '') : null;
+}
+
+/** @returns {string | null} */
+export function getHostBase() {
+  return hostBase;
+}
+
 export function resolveHostUrl(ctx, path) {
   try {
     const service =
@@ -58,14 +119,11 @@ export function resolveHostUrl(ctx, path) {
       return service.hostRouteUrl(path);
     }
   } catch {
-    /* fall through to the page-relative resolution */
+    /* fall through to the probed host base */
   }
-
-  // Page-relative, NOT origin-root: a reverse-proxied DSH serves the GUI under
-  // a directory (`/app/<hash>/`) and an origin-root request would bypass it.
-  const base = typeof document !== 'undefined' ? document.baseURI : undefined;
-  const origin = typeof location !== 'undefined' ? location.origin : undefined;
-  return resolvePageRelative(path, base, origin);
+  const clean = String(path).replace(/^\/+/, '');
+  const base = hostBase !== null ? hostBase : hostBaseCandidates()[0];
+  return base === '' ? `/${clean}` : `${base}/${clean}`;
 }
 
 function timeoutSignal(timeoutMs) {
@@ -77,8 +135,7 @@ function timeoutSignal(timeoutMs) {
   };
 }
 
-async function readStatus(ctx) {
-  const url = resolveHostUrl(ctx, STATUS_PATH);
+async function fetchStatus(statusPath, url) {
   const timeout = timeoutSignal(STATUS_TIMEOUT_MS);
 
   let response;
@@ -91,13 +148,13 @@ async function readStatus(ctx) {
     });
   } catch (error) {
     const reason = error && error.name === 'AbortError' ? 'timeout' : error?.message || String(error);
-    throw new OfficeViewError('status', `GET ${STATUS_PATH} failed`, reason);
+    throw new OfficeViewError('status', `GET ${statusPath} failed`, reason);
   } finally {
     timeout.dispose();
   }
 
   if (!response.ok) {
-    throw new OfficeViewError('status', `GET ${STATUS_PATH} returned ${response.status}`, `HTTP ${response.status}`);
+    throw new OfficeViewError('status', `GET ${statusPath} returned ${response.status}`, `HTTP ${response.status}`);
   }
 
   let status;
@@ -107,7 +164,52 @@ async function readStatus(ctx) {
     throw new OfficeViewError('status', 'Status response is not JSON', error?.message || String(error));
   }
 
-  return { status, url };
+  return status;
+}
+
+/**
+ * Fetch `/status` from every candidate base and keep the one that answers.
+ * The URL that worked becomes `hostBase` for reads, saves, diagnostics and the
+ * SDK asset base, so a page served from `/app/<spaceId>/` and a page served
+ * from the origin root both work without a deployment-specific guess.
+ */
+async function readStatus(ctx) {
+  let explicit = null;
+  try {
+    const service =
+      ctx && typeof ctx.get === 'function' ? ctx.get('betterSidebar') : undefined;
+    if (service && typeof service.hostRouteUrl === 'function') {
+      explicit = service.hostRouteUrl(STATUS_PATH);
+    }
+  } catch {
+    /* fall through to probing */
+  }
+
+  const suffix = '/' + String(STATUS_PATH).replace(/^\/+/, '');
+  const urls = explicit
+    ? [explicit]
+    : hostBaseCandidates().map((base) => (base === '' ? suffix : `${base}${suffix}`));
+  const failures = [];
+  for (const url of urls) {
+    try {
+      const status = await fetchStatus(STATUS_PATH, url);
+      const base = url.slice(0, url.length - suffix.length);
+      setHostBase(base);
+      return { status, url };
+    } catch (error) {
+      failures.push({ url, error });
+    }
+  }
+
+  const first = failures[0];
+  if (urls.length > 1) {
+    throw new OfficeViewError(
+      'status',
+      `host route unreachable (${urls.length} bases tried)`,
+      failures.map((failure) => `${failure.url}: ${failure.error?.message || failure.error}`).join(' | '),
+    );
+  }
+  throw first ? first.error : new OfficeViewError('status', 'no host route candidate', urls.join(', '));
 }
 
 function sdkOriginFrom(status) {
@@ -115,12 +217,11 @@ function sdkOriginFrom(status) {
     status && typeof status.sdkBaseUrl === 'string' && status.sdkBaseUrl.trim()
       ? status.sdkBaseUrl.trim()
       : DEFAULT_SDK_BASE;
-  // Resolve against the PAGE directory so a reverse-proxy prefix
-  // (`/app/<hash>/`) or the desktop shell (`dsh-app://app/`) is preserved.
-  // Origin-root resolution made every SDK asset 404 on sub-path deployments.
-  const base = typeof document !== 'undefined' ? document.baseURI : undefined;
-  const origin = typeof location !== 'undefined' ? location.origin : undefined;
-  return resolvePageRelative(raw, base, origin);
+  const clean = raw.replace(/^\/+/, '');
+  // Prefer the base that actually answered /status; both the asset URLs and the
+  // API bridge must live on that same base or the iframe 404s.
+  const base = hostBase !== null ? hostBase : '';
+  return base === '' ? `/${clean}` : `${base}/${clean}`;
 }
 
 /**
