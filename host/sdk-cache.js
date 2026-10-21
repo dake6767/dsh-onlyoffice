@@ -67,9 +67,18 @@ export function expandHome(input, home = homedir()) {
   return value
 }
 
+/** Environment override shared by every profile on a host (multi-user setups). */
+export const CACHE_DIR_ENV = 'DSH_ONLYOFFICE_CACHE_DIR'
+
 /**
  * Resolve the on-disk cache root.
- * Default: `$DSH_HOME/onlyoffice-sdk` with `$DSH_HOME` defaulting to `~/.dsh`.
+ *
+ * Order: explicit plugin config > `DSH_ONLYOFFICE_CACHE_DIR` >
+ * `$DSH_HOME/onlyoffice-sdk` (with `$DSH_HOME` defaulting to `~/.dsh`).
+ * The environment variable exists for multi-user hosts: every platform user
+ * then shares one downloaded SDK instead of paying the first-open download
+ * (roughly 100 MB) once per profile.
+ *
  * @param {unknown} cacheDir - explicit config value (may be `~`-prefixed/relative)
  * @param {Record<string, string | undefined>} [env]
  * @param {string} [home]
@@ -78,6 +87,8 @@ export function expandHome(input, home = homedir()) {
 export function resolveCacheDir(cacheDir, env = process.env, home = homedir()) {
   const explicit = expandHome(cacheDir, home)
   if (explicit !== null) return resolve(explicit)
+  const fromEnv = expandHome(env === null || env === undefined ? undefined : env[CACHE_DIR_ENV], home)
+  if (fromEnv !== null) return resolve(fromEnv)
   const dshHome = expandHome(env === null || env === undefined ? undefined : env.DSH_HOME, home)
   const base = dshHome === null ? join(home, '.dsh') : dshHome
   return resolve(base, DEFAULT_CACHE_DIRNAME)

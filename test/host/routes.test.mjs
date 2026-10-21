@@ -303,12 +303,12 @@ test('traversal and unsafe asset paths are rejected before any fetch', async (t)
   }
 
   // Segments that survive URL parsing yet are unsafe must be rejected 400 by
-  // the helper's own validation.
+  // the helper's own validation. (A doubled slash is no longer in this list:
+  // the route collapses it, which the presentation editor depends on.)
   const unsafe = [
     '/dsh-onlyoffice/sdk/onlyoffice/9.4.0-develop/a%2Fb.js',
     '/dsh-onlyoffice/sdk/onlyoffice/9.4.0-develop/a%5Cb.js',
     '/dsh-onlyoffice/sdk/onlyoffice/9.4.0-develop/a%00b.js',
-    '/dsh-onlyoffice/sdk/onlyoffice/9.4.0-develop//etc/passwd',
     '/dsh-onlyoffice/sdk/onlyoffice/9.4.0-develop/C%3A/evil.js',
   ]
   for (const url of unsafe) {
@@ -594,4 +594,19 @@ test('browser diagnostics land in the rotating request log', async (t) => {
   // Cache statistics ignore the dotfile log.
   const status = await getStatus(app)
   assert.equal(JSON.parse(status.body).files, 0)
+})
+
+test('a duplicated slash in an SDK path is normalized, not rejected', async (t) => {
+  const payload = Buffer.from('theme bytes')
+  const app = await mount(t, { fetch: makeFetch(() => ({ status: 200, body: payload })) })
+  const res = await invoke(app.route, {
+    url: '/dsh-onlyoffice/sdk/onlyoffice/9.4.0-develop/sdkjs/slide/themes//themes.js',
+  })
+  assert.equal(res.statusCode, 200, 'double slashes are collapsed')
+  assert.deepEqual(res.body, payload)
+  const cached = await listFiles(app.cacheDir)
+  assert.ok(
+    cached.includes('9.4.0-develop/sdkjs/slide/themes/themes.js'),
+    `cached under the collapsed path (got ${cached.join(', ')})`,
+  )
 })

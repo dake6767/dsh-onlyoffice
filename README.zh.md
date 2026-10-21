@@ -98,6 +98,19 @@ GET /dsh-onlyoffice/sdk/onlyoffice/<version>/<rest>
 
 **离线/内网**：把同样目录结构的文件预先放进 `cacheDir`，或把 `upstreamBase` 指向自建静态站点。
 
+### 多用户宿主（共享 SDK 缓存）
+
+默认每个 profile 会把 SDK 下载到自己 `$DSH_HOME/onlyoffice-sdk`（首次冷启动约 100 MB）。
+多用户部署建议指向同一个共享目录：
+
+```bash
+# 0.1.4+：给所有 Host 进程设置环境变量
+export DSH_ONLYOFFICE_CACHE_DIR=/var/lib/dsh-phalanx/data/onlyoffice-sdk
+```
+
+或在插件行 config 里设置 `cacheDir`。优先级：显式 config > 环境变量 > 默认路径。
+无法设置环境变量的宿主，也可以把每个用户的 `~/.dsh/onlyoffice-sdk` 软链到共享目录。
+
 ## HTTP 路由（全部经过 connection fence，与 `/sidebar/*` 一致）
 
 | 路由 | 作用 |

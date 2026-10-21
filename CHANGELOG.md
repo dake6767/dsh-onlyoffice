@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4 — 2026-10-21
+
+- 新增 `DSH_ONLYOFFICE_CACHE_DIR` 环境变量（优先级：插件 config > 环境变量 >
+  `$DSH_HOME/onlyoffice-sdk`）。多用户宿主（如 Phalanx 的 test1/test2）可以共用
+  一份 SDK 缓存，避免每个用户首次打开都下载约 100 MB。
+- SDK 路径中重复的斜杠会被折叠而不是拒绝：演示文稿编辑器会请求
+  `sdkjs/slide/themes//themes.js`，之前返回 400 且永不缓存，主题包因此加载失败。
+- 新增两个 Host 测试覆盖以上行为。
+
 ## 0.1.3 — 2026-10-21
 
 修复：慢速/远程部署下偶发「编辑器渲染超时」，尽管编辑器已正确挂载。

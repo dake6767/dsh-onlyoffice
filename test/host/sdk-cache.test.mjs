@@ -347,3 +347,10 @@ test('describeCache eventually sees atomically renamed files', async (t) => {
   await waitFor(async () => (await describeCache(dir)).files === 1)
   assert.deepEqual(await describeCache(dir), { files: 1, bytes: 7 })
 })
+
+test('DSH_ONLYOFFICE_CACHE_DIR lets a multi-user host share one cache', async () => {
+  const shared = '/var/lib/dsh-phalanx/data/onlyoffice-sdk'
+  assert.equal(resolveCacheDir(undefined, { DSH_ONLYOFFICE_CACHE_DIR: shared }, '/home/u'), shared)
+  // explicit plugin config still wins over the environment
+  assert.equal(resolveCacheDir('/tmp/plugin-cache', { DSH_ONLYOFFICE_CACHE_DIR: shared }, '/home/u'), '/tmp/plugin-cache')
+})

@@ -107,6 +107,22 @@ render.
 Offline / intranet: pre-populate `cacheDir` with the same directory layout, or
 point `upstreamBase` at a self-hosted static copy.
 
+### Multi-user hosts (shared SDK cache)
+
+By default each profile downloads the SDK into its own
+`$DSH_HOME/onlyoffice-sdk` (roughly 100 MB for a cold start). On a multi-user
+deployment set one shared directory instead:
+
+```bash
+# environment for every Host process (0.1.4+)
+export DSH_ONLYOFFICE_CACHE_DIR=/var/lib/dsh-phalanx/data/onlyoffice-sdk
+```
+
+or per profile, in the plugin row config (`cacheDir`). Explicit config wins over
+the environment variable, which wins over the default. On hosts that cannot set
+an environment, pointing each user's `~/.dsh/onlyoffice-sdk` at the shared
+directory with a symlink works too.
+
 ## HTTP routes (all behind the connection fence, same as `/sidebar/*`)
 
 | Route | Purpose |

@@ -207,7 +207,10 @@ async function handleRequest(ctx, runtime, req, res) {
 
     let pathname
     try {
-      pathname = new URL(typeof req.url === 'string' ? req.url : '/', 'http://dsh.internal').pathname
+      // The SDK itself requests some assets with a duplicated slash
+      // (`sdkjs/slide/themes//themes.js`); collapse those instead of rejecting
+      // the path, otherwise the presentation theme bundle 400s and never caches.
+      pathname = new URL(typeof req.url === 'string' ? req.url : '/', 'http://dsh.internal').pathname.replace(/\/{2,}/g, '/')
     } catch {
       sendJson(res, 400, errorEnvelope('bad-request', 'malformed request URL'), {}, head)
       return
