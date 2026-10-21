@@ -89,9 +89,15 @@ test('status returns exactly the documented shape', async (t) => {
 
   const json = res.json()
   assert.deepEqual(Object.keys(json).sort(), [
-    'bytes', 'cacheDir', 'cacheable', 'files', 'lastError', 'ok', 'sdkBaseUrl', 'upstreamBase', 'upstreams', 'version',
+    'bytes', 'cacheDir', 'cacheable', 'files', 'lastError', 'ok', 'pluginVersion',
+    'sdkBaseUrl', 'upstreamBase', 'upstreams', 'version',
   ])
-  assert.deepEqual(json, {
+  // The plugin version is read from the package manifest: assert its shape here
+  // and keep the rest of the payload exact.
+  const { pluginVersion, ...rest } = json
+  assert.equal(typeof pluginVersion, 'string')
+  assert.ok(pluginVersion.length > 0, 'the plugin version must be reported')
+  assert.deepEqual(rest, {
     ok: true,
     version: VERSION,
     sdkBaseUrl: '/dsh-onlyoffice/sdk',

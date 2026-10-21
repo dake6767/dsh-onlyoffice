@@ -45,7 +45,7 @@ import { sameBytes, toUint8Array } from './bytes.js';
 import { AUTOSAVE_DELAY_MS, createAutoSaver } from './autosave.js';
 
 /** Long enough for a cold first open (SDK download + x2t conversion). */
-const DOCUMENT_READY_TIMEOUT_MS = 120000;
+const DOCUMENT_READY_TIMEOUT_MS = 180000;
 /** Hard stop for the whole open pipeline (a hung host route must surface an error + retry). */
 const LOAD_WATCHDOG_MS = 240000;
 const SLOW_HINT_DELAY_MS = 12000;
@@ -302,10 +302,28 @@ function stageMessage(stage, fallback) {
 }
 
 /** True when the editor iframe exists inside our container (the readiness fallback). */
+/**
+ * Whether the OnlyOffice editor iframe exists for this container.
+ *
+ * DocsAPI may REPLACE the `#containerId` element while mounting: the editor
+ * iframe then lives as a SIBLING under our `.onlyoffice-container` wrapper and
+ * `getElementById(containerId)` returns null. Checking only inside the id
+ * element (the original implementation) therefore missed a perfectly mounted
+ * editor and turned a slow-but-alive cold start into a "render timed out"
+ * error on remote deployments.
+ */
 function hasEditorFrame(containerId) {
   try {
     const host = document.getElementById(containerId);
-    return Boolean(host && host.querySelector('iframe'));
+    if (host && host.querySelector('iframe')) return true;
+
+    const wrapper = document.querySelector(`[data-onlyoffice-container-id="${containerId}"]`);
+    if (wrapper && wrapper.querySelector('iframe')) return true;
+
+    // Last resort: a frameEditor that carries our container id in its URL.
+    return Array.from(document.querySelectorAll('iframe[name="frameEditor"]')).some((frame) =>
+      String(frame.src || '').includes(containerId),
+    );
   } catch {
     return false;
   }

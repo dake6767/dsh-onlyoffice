@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3 — 2026-10-21
+
+修复：慢速/远程部署下偶发「编辑器渲染超时」，尽管编辑器已正确挂载。
+
+- `hasEditorFrame()` 现在同时识别 **DocsAPI 把编辑器 iframe 挂成兄弟节点**
+  （它会替换掉我们传入的 `#containerId` 元素）的情况：先查 id 元素、再查
+  `[data-onlyoffice-container-id]` wrapper、最后按 `iframe[name="frameEditor"]`
+  的 URL 匹配。之前只在 id 元素内找，慢冷启动时会误判为“没有 iframe”。
+- 文档就绪等待从 120s 放宽到 180s（远程首次冷启动可能超过两分钟）。
+- `/status` 增加 `pluginVersion`，故障诊断能直接区分「插件版本」和「SDK 版本」；
+  环境快照也会说明容器被替换、wrapper 内 iframe 数量。
+
 ## 0.1.2 — 2026-10-21
 
 修复：反向代理子路径部署（如 `http://host:18080/app/<hash>/`）下 SDK 资源 404。

@@ -188,7 +188,12 @@ export function environmentReport(containerId) {
   try {
     const host = document.getElementById(containerId);
     const frames = host ? host.querySelectorAll('iframe') : [];
-    lines.push(`container: ${host ? 'present' : 'MISSING'} (${frames.length} iframe(s))`);
+    const wrapper = document.querySelector(`[data-onlyoffice-container-id="${containerId}"]`);
+    const wrapperFrames = wrapper ? wrapper.querySelectorAll('iframe') : [];
+    lines.push(
+      `container: ${host ? 'present' : 'MISSING'} (${frames.length} iframe(s)); ` +
+        `wrapper iframes: ${wrapperFrames.length}${host ? '' : ' (DocsAPI replaced the id element)'}`,
+    );
     for (const frame of Array.from(frames).slice(0, 4)) lines.push(`  frame: ${frame.src || '(no src)'}`);
   } catch (error) {
     lines.push(`container: probe failed (${error && error.message ? error.message : String(error)})`);
