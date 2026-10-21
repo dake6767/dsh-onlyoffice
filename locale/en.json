@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "OnlyOffice Documents",
+    "description": "Open docx / xlsx / pptx in an embedded OnlyOffice editor in the sidebar (client-side static SDK, no Document Server)."
+  }
+}

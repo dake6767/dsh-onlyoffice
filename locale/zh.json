@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "OnlyOffice 文档",
+    "description": "在侧栏以 OnlyOffice 编辑器打开 docx / xlsx / pptx（纯前端静态 SDK，无需文档服务器）。"
+  }
+}

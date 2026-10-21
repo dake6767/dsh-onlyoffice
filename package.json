@@ -1,0 +1,75 @@
+{
+  "name": "@dake6767/dsh-onlyoffice",
+  "version": "0.1.0",
+  "private": false,
+  "description": "DSH web plugin: open .docx/.xlsx/.pptx from the sidebar file manager in an embedded OnlyOffice editor (static SDK, no Document Server).",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "LICENSE",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "vendor/PATCHES.md",
+    "vendor/onlyoffice-web-comp/",
+    "src/",
+    "build/"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node build/build-client.mjs && node build/build-host.mjs",
+    "build:client": "node build/build-client.mjs",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "build:host": "node build/build-host.mjs",
+    "test:host": "node --test \"test/host/*.test.mjs\"",
+    "test:client": "node --test \"test/client/*.test.mjs\""
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "license": "AGPL-3.0-only",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "onlyoffice",
+    "docx",
+    "xlsx",
+    "pptx"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dake6767/dsh-onlyoffice.git"
+  },
+  "homepage": "https://github.com/dake6767/dsh-onlyoffice#readme",
+  "bugs": {
+    "url": "https://github.com/dake6767/dsh-onlyoffice/issues"
+  }
+}
