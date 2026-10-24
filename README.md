@@ -70,12 +70,14 @@ node --test "test/**/*.test.mjs"
 
 ## OnlyOffice static SDK: where the engine comes from
 
-Nothing is bundled: the SDK tree is ~19.6k files / 1.1 GB. The Host proxies each
-asset on first request and caches it.
+The SDK tree is ~19.6k files / 1.1 GB and is distributed separately. The Host
+reads a prepared shared copy when configured, then falls back to its writable
+member cache and upstream mirrors.
 
 ```
 GET /dsh-onlyoffice/sdk/onlyoffice/<version>/<rest>
-  cache hit  -> <cacheDir>/<version>/<rest>
+  shared hit -> <DSH_ONLYOFFICE_SHARED_CACHE_DIR>/<version>/<rest>
+  member hit -> <cacheDir>/<version>/<rest>
   cache miss -> <mirror>/onlyoffice/<version>/<rest>  (first working mirror)
 ```
 
@@ -109,21 +111,27 @@ render.
 Offline / intranet: pre-populate `cacheDir` with the same directory layout, or
 point `upstreamBase` at a self-hosted static copy.
 
-### Multi-user hosts (shared SDK cache)
+### Shared SDK with a writable member fallback
 
-By default each profile downloads the SDK into its own
-`$DSH_HOME/onlyoffice-sdk` (roughly 100 MB for a cold start). On a multi-user
-deployment set one shared directory instead:
+Set `DSH_ONLYOFFICE_SHARED_CACHE_DIR` (0.1.8+) to a prepared SDK root visible to
+each Host process:
 
 ```bash
-# environment for every Host process (0.1.4+)
-export DSH_ONLYOFFICE_CACHE_DIR=/var/lib/dsh-phalanx/data/onlyoffice-sdk
+export DSH_ONLYOFFICE_SHARED_CACHE_DIR=/opt/onlyoffice-sdk
+# Expected asset: /opt/onlyoffice-sdk/9.4.0-develop/web-apps/apps/api/documents/api.js
 ```
 
-or per profile, in the plugin row config (`cacheDir`). Explicit config wins over
-the environment variable, which wins over the default. On hosts that cannot set
-an environment, pointing each user's `~/.dsh/onlyoffice-sdk` at the shared
-directory with a symlink works too.
+Mount this directory read-only for members. Shared hits contact no upstream and
+write nothing into the shared tree. Missing, inaccessible or non-file entries
+fall back to the member cache; symlinks resolving outside the shared root are
+ignored. A newly available shared file takes priority over both a member copy
+and a remembered upstream 404.
+
+Downloads and request logs stay in the writable cache. Its existing precedence
+is unchanged: explicit plugin `cacheDir`, then `DSH_ONLYOFFICE_CACHE_DIR`, then
+`$DSH_HOME/onlyoffice-sdk`. The older `DSH_ONLYOFFICE_CACHE_DIR` setting still
+selects a writable cache; use the separate shared setting for a read-only mount.
+`/status` file and byte counts describe only the writable cache.
 
 ## HTTP routes (all behind the connection fence, same as `/sidebar/*`)
 

@@ -5,7 +5,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFile, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { apply, inject } from '../../host/index.js'
@@ -625,4 +625,101 @@ test('saveEnabled:false disables writes but keeps the status readable', async (t
   const res = await getStatus(app)
   assert.equal(res.json().saveEnabled, false)
   assert.equal(res.json().autoSave, false)
+})
+
+
+test('read-only shared SDK takes priority over member cache for GET and HEAD', async (t) => {
+  const shared = await makeTempDir(t)
+  const asset = join(VERSION, 'web-apps/apps/api/documents/api.js')
+  const sharedFile = join(shared, asset)
+  await mkdir(join(sharedFile, '..'), { recursive: true })
+  await writeFile(sharedFile, 'shared SDK')
+  await chmod(sharedFile, 0o444)
+  await chmod(shared, 0o555)
+  // Restore before the temporary-directory cleanup hook runs.
+  try {
+    const app = await mountShared(t, { shared })
+    await mkdir(join(app.cacheDir, asset, '..'), { recursive: true })
+    await writeFile(join(app.cacheDir, asset), 'member SDK')
+    const before = await stat(sharedFile)
+    const get = await invoke(app.route, { url: SDK_JS })
+    assert.equal(get.statusCode, 200)
+    assert.equal(get.body.toString(), 'shared SDK')
+    const head = await invoke(app.route, { url: SDK_JS, method: 'HEAD' })
+    assert.equal(head.statusCode, 200)
+    assert.equal(head.getHeader('content-length'), '10')
+    assert.equal(head.body.length, 0)
+    assert.equal(app.fetchImpl.calls.length, 0)
+    assert.deepEqual(await listFiles(shared), [asset])
+    const after = await stat(sharedFile)
+    assert.equal(after.mtimeMs, before.mtimeMs)
+    assert.equal(after.mode, before.mode)
+    assert.ok(app.logs.some((log) => String(log.args[0]).includes('shared cache hit')))
+  } finally {
+    await chmod(shared, 0o755)
+  }
+})
+
+
+async function mountShared(t, options = {}) {
+  const shared = options.shared ?? await makeTempDir(t)
+  const previous = process.env.DSH_ONLYOFFICE_SHARED_CACHE_DIR
+  process.env.DSH_ONLYOFFICE_SHARED_CACHE_DIR = shared
+  try {
+    return { ...await mount(t, options), shared }
+  } finally {
+    if (previous === undefined) delete process.env.DSH_ONLYOFFICE_SHARED_CACHE_DIR
+    else process.env.DSH_ONLYOFFICE_SHARED_CACHE_DIR = previous
+  }
+}
+
+test('missing shared assets fill only the member cache', async (t) => {
+  const app = await mountShared(t, { fetch: makeFetch(() => ({ status: 200, body: 'downloaded SDK' })) })
+  const res = await invoke(app.route, { url: SDK_JS })
+  assert.equal(res.statusCode, 200)
+  assert.equal(res.body.toString(), 'downloaded SDK')
+  assert.deepEqual(await listFiles(app.shared), [])
+  assert.equal((await getStatus(app)).json().files, 1)
+  await invoke(app.route, { url: SDK_JS })
+  assert.equal(app.fetchImpl.calls.length, 1)
+})
+
+test('a newly available shared asset overrides a remembered upstream 404', async (t) => {
+  const app = await mountShared(t, { fetch: makeFetch(() => ({ status: 404, body: 'missing' })) })
+  assert.equal((await invoke(app.route, { url: SDK_JS })).statusCode, 404)
+  const file = join(app.shared, VERSION, 'web-apps/apps/api/documents/api.js')
+  await mkdir(join(file, '..'), { recursive: true })
+  await writeFile(file, 'now shared')
+  const res = await invoke(app.route, { url: SDK_JS })
+  assert.equal(res.statusCode, 200)
+  assert.equal(res.body.toString(), 'now shared')
+  assert.equal(app.fetchImpl.calls.length, 1)
+  assert.equal((await getStatus(app)).json().files, 0)
+})
+
+test('shared directories and escaping symlinks fall back without serving outside files', async (t) => {
+  for (const kind of ['directory', 'file-link', 'directory-link']) {
+    await t.test(kind, async (t) => {
+      const app = await mountShared(t, { fetch: makeFetch(() => ({ status: 200, body: 'safe fallback' })) })
+      const outside = await makeTempDir(t)
+      const asset = 'web-apps/apps/api/documents/api.js'
+      const target = join(app.shared, VERSION, asset)
+      await mkdir(join(target, '..'), { recursive: true })
+      if (kind === 'directory') await mkdir(target)
+      else if (kind === 'file-link') {
+        await writeFile(join(outside, 'secret'), 'outside secret')
+        await symlink(join(outside, 'secret'), target)
+      } else {
+        await mkdir(join(outside, asset, '..'), { recursive: true })
+        await writeFile(join(outside, asset), 'outside secret')
+        await symlink(outside, join(app.shared, 'other'))
+        // Request through a directory link rather than a regular SDK tree.
+        await symlink(join(app.shared, 'other', asset), target)
+      }
+      const res = await invoke(app.route, { url: SDK_JS })
+      assert.equal(res.statusCode, 200)
+      assert.equal(res.body.toString(), 'safe fallback')
+      assert.equal(app.fetchImpl.calls.length, 1)
+    })
+  }
 })

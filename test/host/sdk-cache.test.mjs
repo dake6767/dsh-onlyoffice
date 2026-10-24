@@ -102,6 +102,7 @@ test('resolveConfig falls back to defaults for invalid/missing values', () => {
     upstreamBase: DEFAULT_UPSTREAM_BASE,
     upstreams: DEFAULT_UPSTREAM_BASES,
     cacheDir: '/home/t/.dsh/onlyoffice-sdk',
+    sharedCacheDir: null,
     warnings: [],
   })
   assert.deepEqual(resolveConfig(null, {}, '/home/t'), defaults)
@@ -117,6 +118,7 @@ test('resolveConfig falls back to defaults for invalid/missing values', () => {
     upstreamBase: 'https://mirror.test/packages',
     upstreams: ['https://mirror.test/packages'],
     cacheDir: '/home/t/sdk-cache',
+    sharedCacheDir: null,
     warnings: [],
   })
 
