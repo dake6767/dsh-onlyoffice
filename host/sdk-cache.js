@@ -179,6 +179,7 @@ function dedupe(values) {
  *   upstreamBase: string,
  *   upstreams: string[],
  *   cacheDir: string,
+ *   sharedCacheDir: string | null,
  *   warnings: string[],
  * }} ResolvedConfig
  */
@@ -236,6 +237,7 @@ export function resolveConfig(config, env = process.env, home = homedir()) {
     upstreamBase: upstreams[0],
     upstreams,
     cacheDir: resolveCacheDir(raw.cacheDir, env, home),
+    sharedCacheDir: expandHome(env?.DSH_ONLYOFFICE_SHARED_CACHE_DIR, home),
     warnings,
   }
 }

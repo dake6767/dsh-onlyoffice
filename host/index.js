@@ -21,8 +21,8 @@
  *     exact `Content-Length` and a failed upstream can never leave a partial
  *     file. A 404 is passed through only after every mirror returned 404.
  *
- * The SDK tree is huge (~19.6k files / 1.1 GB), so nothing is pre-downloaded:
- * every asset is fetched on first request and cached for the next one.
+ * A prepared read-only shared SDK is checked before the writable member cache.
+ * Missing assets are fetched on first request into the member cache.
  *
  * Plain ESM JavaScript with only `node:*` imports (plus the sibling helper
  * module): the package is installed as a linked directory outside the DSH
@@ -45,6 +45,7 @@ import {
   cachePathFor,
   contentTypeForPath,
   describeCache,
+  isPathInside,
   parseSdkPath,
   resolveConfig,
   upstreamUrlFor,
@@ -423,6 +424,17 @@ async function sendSdkAsset(res, pathname, runtime, head) {
   }
 
   const key = segments.join('/')
+  const sharedRoot = runtime.resolved.sharedCacheDir
+  const sharedTarget = sharedRoot === null ? null : cachePathFor(sharedRoot, version, segments)
+  if (sharedTarget !== null) {
+    const shared = await sharedFile(sharedRoot, sharedTarget)
+    if (shared !== null) {
+      runtime.negative.delete(key)
+      runtime.log('info', `shared cache hit ${version}/${key}`)
+      await sendFile(res, shared.path, shared.info, head)
+      return
+    }
+  }
   const cached = await statFile(target)
   if (cached !== null) {
     runtime.negative.delete(key)
@@ -693,6 +705,20 @@ async function sendFile(res, target, info, head) {
     // The status line is already committed; destroy and let the client's
     // loader report the truncation.
     res.destroy?.()
+  }
+}
+
+/** Read only ordinary files whose resolved path stays inside the shared root. */
+async function sharedFile(root, target) {
+  try {
+    const base = await fsp.realpath(root)
+    const path = await fsp.realpath(target)
+    if (!isPathInside(base, path)) return null
+    const info = await fsp.stat(path)
+    return info.isFile() ? { path, info } : null
+  } catch {
+    // Missing, inaccessible or unsuitable shared entries use the member cache.
+    return null
   }
 }
 
