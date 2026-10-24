@@ -113,7 +113,7 @@ point `upstreamBase` at a self-hosted static copy.
 
 ### Shared SDK with a writable member fallback
 
-Set `DSH_ONLYOFFICE_SHARED_CACHE_DIR` (0.1.8+) to a prepared SDK root visible to
+Set `DSH_ONLYOFFICE_SHARED_CACHE_DIR` (0.1.9+) to a prepared SDK root visible to
 each Host process:
 
 ```bash
