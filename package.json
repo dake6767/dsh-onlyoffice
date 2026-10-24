@@ -1,6 +1,6 @@
 {
   "name": "@dake6767/dsh-onlyoffice",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": false,
   "description": "DSH web plugin: open .docx/.xlsx/.pptx from the sidebar file manager in an embedded OnlyOffice editor (static SDK, no Document Server).",
   "type": "module",
